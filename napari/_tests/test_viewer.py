@@ -4,13 +4,14 @@ import time
 import numpy as np
 import pytest
 
-from napari import Viewer
+from napari import Viewer, layers
 from napari._tests.utils import (
     add_layer_by_type,
     check_view_transform_consistency,
     check_viewer_functioning,
     layer_test_data,
 )
+from napari.utils._tests.test_naming import eval_with_filename
 
 
 def test_viewer(make_test_viewer):
@@ -68,6 +69,19 @@ def test_add_layer(make_test_viewer, layer_class, data, ndim, visible):
     # Run all class key bindings
     for func in layer.class_keymap.values():
         func(layer)
+
+
+@pytest.mark.parametrize('layer_class, a_unique_name, ndim', layer_test_data)
+def test_add_layer_magic_name(
+    make_test_viewer, layer_class, a_unique_name, ndim
+):
+    """Test magic_name works when using add_* for layers"""
+    # Tests for issue #1709
+    viewer = make_test_viewer()  # noqa: F841
+    layer = eval_with_filename(
+        "add_layer_by_type(viewer, layer_class, a_unique_name)", "somefile.py",
+    )
+    assert layer.name == "a_unique_name"
 
 
 def test_screenshot(make_test_viewer):
@@ -180,6 +194,9 @@ def test_roll_traspose_update(make_test_viewer, layer_class, data, ndim):
     }
     for k, val in transf_dict.items():
         setattr(layer, k, val)
+
+    if layer_class in [layers.Image, layers.Labels]:
+        transf_dict['translate'] -= transf_dict['scale'] / 2
 
     # Check consistency:
     check_view_transform_consistency(layer, viewer, transf_dict)
